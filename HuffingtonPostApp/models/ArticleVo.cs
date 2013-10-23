@@ -9,7 +9,7 @@ namespace HuffingtonPostApp.models
     /// <summary>
     /// Vo for the Articles parses from the RSS feed
     /// </summary>
-    class ArticleVo
+    public class ArticleVo
     {
         /// <summary>
         /// 

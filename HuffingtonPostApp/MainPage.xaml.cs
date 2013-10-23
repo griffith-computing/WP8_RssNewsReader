@@ -11,36 +11,56 @@ using HuffingtonPostApp.Resources;
 using System.Xml.Linq;
 using Windows.Phone.Speech.Synthesis;
 using Windows.Foundation;
+using HuffingtonPostApp.services;
+using HuffingtonPostApp.models;
+using HuffingtonPostApp.events;
+using HuffingtonPostApp.views;
+using Microsoft.Phone.Scheduler;
 
 namespace HuffingtonPostApp
 {
     public partial class MainPage : PhoneApplicationPage
     {
-        protected String huffPostFullFeedUrl = "http://feeds.bbci.co.uk/news/rss.xml";
-        protected String[] titles;
-        protected String[] images;
-        protected String[] descriptions;
+        protected String rssFeedUrl = "http://feeds.bbci.co.uk/news/rss.xml";
+        protected RssArticleService service = new RssArticleService();
+        protected PeriodicTask task;
 
         // Constructor
         public MainPage()
         {
             InitializeComponent();
 
-            // refactor to a service which has an event when the download is complete...
-            WebClient wc = new WebClient();
-            wc.DownloadStringCompleted += new DownloadStringCompletedEventHandler(handleDownloadStringComplete);
-            wc.DownloadStringAsync(new Uri(huffPostFullFeedUrl));
-
-            // Sample code to localize the ApplicationBar
-            //BuildLocalizedApplicationBar();
+            service.articlesObtained += new EventHandler<RssArticleEventArgs>(handleArticlesObtained);
+            service.getFeedArticles(rssFeedUrl);
         }
 
-        private void handleDownloadStringComplete(object sender, DownloadStringCompletedEventArgs e)
+        private void handleArticlesObtained(object sender, RssArticleEventArgs e)
+        {
+            List<ArticleVo> articles = e.articles;
+
+            list1.ItemsSource = articles;
+            list1.SelectionChanged += new SelectionChangedEventHandler(handleListSelectionChanged);  
+        }
+
+        private void handleListSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            NavigationService.Navigated += new NavigatedEventHandler(handleNavigatedToArticleView);
+            NavigationService.Navigate(new Uri("/views/ArticleView.xaml", UriKind.Relative));
+        }
+
+        private void handleNavigatedToArticleView(object sender, NavigationEventArgs e)
+        {
+            NavigationService.Navigated -= new NavigatedEventHandler(handleNavigatedToArticleView);
+            ArticleView view = (ArticleView)e.Content;
+            view.data = (ArticleVo)list1.SelectedItem;
+        }
+
+        /*private void handleDownloadStringComplete(object sender, DownloadStringCompletedEventArgs e)
         {
             if (Microsoft.Phone.Net.NetworkInformation.DeviceNetworkInformation.IsNetworkAvailable)
             {
                 XNamespace media = XNamespace.Get("http://search.yahoo.com/mrss/");
-                titles = System.Xml.Linq.XElement.Parse(e.Result).Descendants("title")
+                titles = XElement.Parse(e.Result).Descendants("title")
                     .Where(m => m.Parent.Name == "item")
                     .Select(m => m.Value)
                     .ToArray();
@@ -55,11 +75,7 @@ namespace HuffingtonPostApp
                     .Select(m => m.Attribute("url").Value)
                     .ToArray();
 
-                SpeechSynthesizer synth = new SpeechSynthesizer();
-                synth.SpeakTextAsync(titles[0]).Completed += new AsyncActionCompletedHandler(delegate(IAsyncAction action, AsyncStatus status)
-                    {
-                        synth.SpeakTextAsync(descriptions[0]);
-                    });
+                
                 UpdatePrimaryTile(titles[0], images[0]);
                 
             }
@@ -67,7 +83,7 @@ namespace HuffingtonPostApp
             {
                 MessageBox.Show("No network is available...");
             }
-        }
+        }*/
 
         // TODO: figure out how to update the tile every minute...
         public static void UpdatePrimaryTile(string content, string image)
